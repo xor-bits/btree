@@ -1,0 +1,7 @@
+.{
+    .name = .btree,
+    .version = "0.0.1",
+    .minimum_zig_version = "0.15.2",
+    .paths = .{"*"},
+    .fingerprint = 0xb3aa52f0f0b073df,
+}
