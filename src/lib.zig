@@ -165,6 +165,15 @@ pub fn BTreeMap(comptime K: type, comptime V: type, comptime cfg: Config(K)) typ
             }
         }
 
+        pub fn put(
+            self: *Self,
+            alloc: std.mem.Allocator,
+            key: K,
+            val: V,
+        ) Error!void {
+            _ = try self.fetchPut(alloc, key, val);
+        }
+
         /// insert `val` at `key`, returning the old value
         pub fn fetchPut(
             self: *Self,
@@ -678,12 +687,6 @@ pub fn BTreeMap(comptime K: type, comptime V: type, comptime cfg: Config(K)) typ
             }
         }
 
-        /// insert `val` at `key`, returning it if it already exists
-        pub fn tryInsert(self: *Self, key: K, val: V) ?V {
-            _ = .{ self, key, val };
-            @panic("todo");
-        }
-
         pub fn get(self: *const Self, key: K) ?V {
             return (self.getPtr(key) orelse return null).*;
         }
@@ -1091,7 +1094,7 @@ test "fuzz" {
             var input = _input;
 
             const TreeMap = BTreeMap(usize, usize, .{
-                .node_size = .{ .nodes = 2 },
+                .node_size = .{ .nodes = 5 },
             });
             const HashMap = std.AutoHashMapUnmanaged(usize, usize);
 
@@ -1127,7 +1130,7 @@ test "fuzz" {
                         const val = std.mem.readInt(u8, input[0..1], .little);
                         input = input[1..];
 
-                        std.debug.print("insert(key={}, val={}, size={}, depth={})\n", .{
+                        std.debug.print("fetchPut(key={}, val={}, size={}, depth={})\n", .{
                             key,
                             val,
                             treemap.size,
@@ -1140,7 +1143,7 @@ test "fuzz" {
                         try expectKvEq(v1, v2);
                     },
                     1 => {
-                        std.debug.print("remove(key={}, size={}, depth={})\n", .{
+                        std.debug.print("fetchRemove(key={}, size={}, depth={})\n", .{
                             key,
                             treemap.size,
                             treemap.depth,
