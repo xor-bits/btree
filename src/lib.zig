@@ -298,7 +298,7 @@ pub fn BTreeMap(comptime K: type, comptime V: type, comptime cfg: Config(K)) typ
                 },
                 .not_found => |i| {
                     var next_node_ptr = node.ptrs[i];
-                    var next_depth = depth - 1;
+                    const next_depth = depth - 1;
 
                     var next_node = getNode(next_node_ptr, next_depth);
                     if (next_node.used.* == next_node.min) {
@@ -311,10 +311,7 @@ pub fn BTreeMap(comptime K: type, comptime V: type, comptime cfg: Config(K)) typ
                                         node,
                                         depth,
                                         i,
-                                    ) catch {
-                                        next_node_ptr = self.root.?;
-                                        next_depth = self.depth;
-                                    };
+                                    );
                                 };
                             };
                         } else if (i == 0) {
@@ -324,67 +321,19 @@ pub fn BTreeMap(comptime K: type, comptime V: type, comptime cfg: Config(K)) typ
                                     node,
                                     depth,
                                     i,
-                                ) catch {
-                                    next_node_ptr = self.root.?;
-                                    next_depth = self.depth;
-                                };
+                                );
                             };
                         } else if (i == node.used) {
                             stealFromPrevSibling(node, depth, i) catch {
-                                if (self.mergeNthChildWithNext(
+                                next_node_ptr = node.ptrs[i - 1];
+                                self.mergeNthChildWithNext(
                                     alloc,
                                     node,
                                     depth,
                                     i - 1,
-                                )) |_| {
-                                    next_node_ptr = node.ptrs[i - 1];
-                                } else |_| {
-                                    next_node_ptr = self.root.?;
-                                    next_depth = self.depth;
-                                }
+                                );
                             };
-                        } else {
-                            unreachable;
                         }
-
-                        // if (i != 0 and i != node.used) {
-                        //                             std.debug.print("case 1\n", .{});
-                        //                             stealFromPrevSibling(node, depth, i) catch {
-                        //                                 stealFromNextSibling(node, depth, i) catch {
-                        //                                     self.mergeNthChildWithNext(
-                        //                                         alloc,
-                        //                                         node,
-                        //                                         depth,
-                        //                                         i,
-                        //                                     ) catch {};
-                        //                                 };
-                        //                             };
-                        //                         } else if (i == 0) {
-                        //                             std.debug.print("case 2\n", .{});
-                        //                             stealFromNextSibling(node, depth, i) catch {
-                        //                                 self.mergeNthChildWithNext(
-                        //                                     alloc,
-                        //                                     node,
-                        //                                     depth,
-                        //                                     i,
-                        //                                 ) catch {};
-                        //                             };
-                        //                         } else if (i == node.used) {
-                        //                             std.debug.print("case 3\n", .{});
-                        //                             stealFromPrevSibling(node, depth, i) catch {
-                        //                                 self.mergeNthChildWithNext(
-                        //                                     alloc,
-                        //                                     node,
-                        //                                     depth,
-                        //                                     i - 1,
-                        //                                 ) catch {};
-                        //                                 next_node_ptr = node.ptrs[i - 1];
-                        //                                 self.debug();
-                        //                             };
-                        //                         } else {
-                        //                             std.debug.print("case 4? i={} used={}\n", .{ i, node.used });
-                        //                             unreachable;
-                        //                         }
                     }
 
                     next_node = getNode(next_node_ptr, next_depth);
@@ -436,7 +385,7 @@ pub fn BTreeMap(comptime K: type, comptime V: type, comptime cfg: Config(K)) typ
                         node,
                         depth,
                         found_index,
-                    ) catch {};
+                    );
                     if (ChildNode == LeafNode) {
                         const key = removeArr(K, lhs.keys[0..], lhs.used, ChildNode.MIN);
                         const val = removeArr(V, lhs.vals[0..], lhs.used, ChildNode.MIN);
@@ -479,7 +428,7 @@ pub fn BTreeMap(comptime K: type, comptime V: type, comptime cfg: Config(K)) typ
                         node,
                         depth,
                         last,
-                    ) catch unreachable; // should already be checked in previous levels
+                    );
                 } else if (child_size == .min) {
                     stealFromPrevSibling(
                         node,
@@ -519,7 +468,7 @@ pub fn BTreeMap(comptime K: type, comptime V: type, comptime cfg: Config(K)) typ
                         node,
                         depth,
                         first,
-                    ) catch unreachable; // should already be checked in previous levels
+                    );
                 } else if (child_size == .min) {
                     stealFromNextSibling(
                         node,
@@ -613,7 +562,7 @@ pub fn BTreeMap(comptime K: type, comptime V: type, comptime cfg: Config(K)) typ
             parent: *BranchNode,
             depth: usize,
             n: usize,
-        ) error{NewRootCreated}!void {
+        ) void {
             std.debug.assert(depth != 0);
 
             // only the root can have less than MIN keys,
@@ -649,7 +598,6 @@ pub fn BTreeMap(comptime K: type, comptime V: type, comptime cfg: Config(K)) typ
                         self.root = dst;
                         self.depth -= 1;
                         alloc.destroy(parent);
-                        return error.NewRootCreated;
                     }
                 },
             }
