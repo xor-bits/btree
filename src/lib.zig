@@ -190,16 +190,10 @@ pub fn BTreeMap(comptime K: type, comptime V: type, comptime cfg: Config(K)) typ
             const root_node = getNode(self.root.?, self.depth);
             if (root_node.used.* == root_node.max) try self.splitRoot(alloc);
 
-            self.debug();
-
-            std.debug.print("insert start\n", .{});
-
             var root = self.root.?;
             var depth = self.depth;
 
             while (true) : (depth -= 1) {
-                std.debug.print("depth={}\n", .{depth});
-
                 const node = getNode(root, depth);
                 std.debug.assert(node.used.* != node.max);
 
@@ -226,8 +220,6 @@ pub fn BTreeMap(comptime K: type, comptime V: type, comptime cfg: Config(K)) typ
                     // split full nodes pre-emptitively
                     if (isMaxCapacity(node.ptrs[i], depth - 1)) {
                         try splitNthChild(alloc, root, depth, i);
-                        // std.debug.print("post split\n", .{});
-                        // self.debug();
                         switch (cfg.cmp(node.keys[i], key)) {
                             .lt => i += 1,
                             .eq => {
@@ -246,7 +238,6 @@ pub fn BTreeMap(comptime K: type, comptime V: type, comptime cfg: Config(K)) typ
         }
 
         pub fn fetchRemove(self: *Self, alloc: std.mem.Allocator, key: K) ?KV {
-            std.debug.print("remove(key={any})\n", .{key});
             return self.removeNode(
                 alloc,
                 self.root orelse return null,
@@ -262,13 +253,6 @@ pub fn BTreeMap(comptime K: type, comptime V: type, comptime cfg: Config(K)) typ
             depth: usize,
             wanted_key: K,
         ) ?KV {
-            std.debug.print("removeNode(node_ptr={*}, depth={}, key={any}, first={any})\n", .{
-                node_ptr,
-                depth,
-                wanted_key,
-                getNode(node_ptr, depth).keys[0],
-            });
-
             if (depth == 0) {
                 const node: *LeafNode = @ptrCast(@alignCast(node_ptr));
 
@@ -300,12 +284,10 @@ pub fn BTreeMap(comptime K: type, comptime V: type, comptime cfg: Config(K)) typ
 
             switch (indexOf(wanted_key, node.keys[0..node.used])) {
                 .found => |i| {
-                    std.debug.print("found i={}\n", .{i});
                     self.size -= 1;
                     return self.removeBranch(alloc, node, depth, i);
                 },
                 .not_found => |i| {
-                    std.debug.print("not found i={}\n", .{i});
                     var next_node_ptr = node.ptrs[i];
                     var next_depth = depth - 1;
 
@@ -313,42 +295,33 @@ pub fn BTreeMap(comptime K: type, comptime V: type, comptime cfg: Config(K)) typ
                     if (next_node.used.* == next_node.min) {
                         // pre-emptitively merge nodes
                         if (i != 0 and i != node.used) {
-                            std.debug.print("case 1a\n", .{});
                             stealFromPrevSibling(node, depth, i) catch {
-                                std.debug.print("case 1b\n", .{});
                                 stealFromNextSibling(node, depth, i) catch {
-                                    std.debug.print("case 1c\n", .{});
                                     self.mergeNthChildWithNext(
                                         alloc,
                                         node,
                                         depth,
                                         i,
                                     ) catch {
-                                        std.debug.print("root modified\n", .{});
                                         next_node_ptr = self.root.?;
                                         next_depth = self.depth;
                                     };
                                 };
                             };
                         } else if (i == 0) {
-                            std.debug.print("case 2a\n", .{});
                             stealFromNextSibling(node, depth, i) catch {
-                                std.debug.print("case 2b\n", .{});
                                 self.mergeNthChildWithNext(
                                     alloc,
                                     node,
                                     depth,
                                     i,
                                 ) catch {
-                                    std.debug.print("root modified\n", .{});
                                     next_node_ptr = self.root.?;
                                     next_depth = self.depth;
                                 };
                             };
                         } else if (i == node.used) {
-                            std.debug.print("case 3a\n", .{});
                             stealFromPrevSibling(node, depth, i) catch {
-                                std.debug.print("case 3b\n", .{});
                                 if (self.mergeNthChildWithNext(
                                     alloc,
                                     node,
@@ -357,18 +330,13 @@ pub fn BTreeMap(comptime K: type, comptime V: type, comptime cfg: Config(K)) typ
                                 )) |_| {
                                     next_node_ptr = node.ptrs[i - 1];
                                 } else |_| {
-                                    std.debug.print("root modified\n", .{});
                                     next_node_ptr = self.root.?;
                                     next_depth = self.depth;
                                 }
-                                self.debug();
                             };
                         } else {
-                            std.debug.print("case 4? i={} used={}\n", .{ i, node.used });
                             unreachable;
                         }
-                        std.debug.print("after pre-emptitive fix:\n", .{});
-                        self.debug();
 
                         // if (i != 0 and i != node.used) {
                         //                             std.debug.print("case 1\n", .{});
@@ -430,12 +398,6 @@ pub fn BTreeMap(comptime K: type, comptime V: type, comptime cfg: Config(K)) typ
             depth: usize,
             found_index: usize,
         ) KV {
-            std.debug.print("removeBranch(node={*}, depth={}, found_index={})\n", .{
-                node,
-                depth,
-                found_index,
-            });
-
             const kv: KV = .{
                 .key = node.keys[found_index],
                 .value = node.vals[found_index],
@@ -486,12 +448,6 @@ pub fn BTreeMap(comptime K: type, comptime V: type, comptime cfg: Config(K)) typ
             node_ptr: *AnyNode,
             depth: usize,
         ) KV {
-            std.debug.print("removePredecessor(node_ptr={*}, depth={})\n", .{
-                node_ptr,
-                depth,
-            });
-            self.debug();
-
             if (depth == 0) {
                 const node: *LeafNode = @ptrCast(@alignCast(node_ptr));
                 std.debug.assert(node.used > LeafNode.MIN);
@@ -503,8 +459,6 @@ pub fn BTreeMap(comptime K: type, comptime V: type, comptime cfg: Config(K)) typ
             } else {
                 const node: *BranchNode = @ptrCast(@alignCast(node_ptr));
                 std.debug.assert(node.used > BranchNode.MIN);
-
-                std.debug.print("/\\ at {any}\n", .{node.keys[0..node.used]});
 
                 var last = node.used;
                 const child_size = nodeSize(node.ptrs[last], depth - 1);
@@ -535,12 +489,6 @@ pub fn BTreeMap(comptime K: type, comptime V: type, comptime cfg: Config(K)) typ
             node_ptr: *AnyNode,
             depth: usize,
         ) KV {
-            std.debug.print("removeSuccessor(node_ptr={*}, depth={})\n", .{
-                node_ptr,
-                depth,
-            });
-            self.debug();
-
             if (depth == 0) {
                 const node: *LeafNode = @ptrCast(@alignCast(node_ptr));
                 std.debug.assert(node.used > LeafNode.MIN);
@@ -552,8 +500,6 @@ pub fn BTreeMap(comptime K: type, comptime V: type, comptime cfg: Config(K)) typ
             } else {
                 const node: *BranchNode = @ptrCast(@alignCast(node_ptr));
                 std.debug.assert(node.used > BranchNode.MIN);
-
-                std.debug.print("/\\ at {any}\n", .{node.keys[0..node.used]});
 
                 const first = 0;
                 const child_size = nodeSize(node.ptrs[first], depth - 1);
@@ -591,28 +537,11 @@ pub fn BTreeMap(comptime K: type, comptime V: type, comptime cfg: Config(K)) typ
                     const dst: *ChildNode = @ptrCast(@alignCast(parent.ptrs[n]));
                     const src: *ChildNode = @ptrCast(@alignCast(parent.ptrs[n - 1]));
 
-                    std.debug.print("stealFromPrevSibling(parent={*}, depth={}, n={}, src={any}, dst={any})\n", .{
-                        parent,
-                        depth,
-                        n,
-                        src.keys[0..src.used],
-                        dst.keys[0..dst.used],
-                    });
-
                     if (src.used == ChildNode.MIN)
                         return error.SiblingAtMinimum;
 
                     std.debug.assert(dst.used != ChildNode.MAX);
                     std.debug.assert(src.used != ChildNode.MIN);
-
-                    std.debug.print("src before: {any}\n", .{src.keys[0..src.used]});
-                    if (!child_is_leaf) std.debug.print("src ptrs before: {any}\n", .{src.ptrs[0 .. src.used + 1]});
-                    std.debug.print("dst before: {any}\n", .{dst.keys[0..dst.used]});
-                    if (!child_is_leaf) std.debug.print("dst ptrs before: {any}\n", .{dst.ptrs[0 .. dst.used + 1]});
-                    defer std.debug.print("src after: {any}\n", .{src.keys[0..src.used]});
-                    defer if (!child_is_leaf) std.debug.print("src ptrs after: {any}\n", .{src.ptrs[0 .. src.used + 1]});
-                    defer std.debug.print("dst after: {any}\n", .{dst.keys[0..dst.used]});
-                    defer if (!child_is_leaf) std.debug.print("dst ptrs after: {any}\n", .{dst.ptrs[0 .. dst.used + 1]});
 
                     insertArr(K, dst.keys[0..], dst.used, 0, parent.keys[n - 1]);
                     parent.keys[n - 1] = src.keys[src.used - 1];
@@ -646,14 +575,6 @@ pub fn BTreeMap(comptime K: type, comptime V: type, comptime cfg: Config(K)) typ
 
                     const dst: *ChildNode = @ptrCast(@alignCast(parent.ptrs[n]));
                     const src: *ChildNode = @ptrCast(@alignCast(parent.ptrs[n + 1]));
-
-                    std.debug.print("stealFromNextSibling(parent={*}, depth={}, n={}, src={any}, dst={any})\n", .{
-                        parent,
-                        depth,
-                        n,
-                        src.keys[0..src.used],
-                        dst.keys[0..dst.used],
-                    });
 
                     if (src.used == ChildNode.MIN)
                         return error.SiblingAtMinimum;
@@ -702,14 +623,6 @@ pub fn BTreeMap(comptime K: type, comptime V: type, comptime cfg: Config(K)) typ
                     const dst: *ChildNode = @ptrCast(@alignCast(parent.ptrs[n]));
                     const src: *ChildNode = @ptrCast(@alignCast(src_node));
 
-                    std.debug.print("mergeNthChildWithNext(parent={*}, depth={}, n={}, src={any}, dst={any})\n", .{
-                        parent,
-                        depth,
-                        n,
-                        src.keys[0..src.used],
-                        dst.keys[0..dst.used],
-                    });
-
                     std.debug.assert(dst != src);
                     std.debug.assert(dst.used == ChildNode.MIN);
                     std.debug.assert(src.used == ChildNode.MIN);
@@ -726,8 +639,6 @@ pub fn BTreeMap(comptime K: type, comptime V: type, comptime cfg: Config(K)) typ
                         std.debug.assert(@intFromPtr(self.root) == @intFromPtr(parent));
                         self.root = dst;
                         self.depth -= 1;
-                        std.debug.print("merge rebalance:\n", .{});
-                        self.debug();
                         alloc.destroy(parent);
                         return error.NewRootCreated;
                     }
@@ -956,7 +867,6 @@ pub fn BTreeMap(comptime K: type, comptime V: type, comptime cfg: Config(K)) typ
         }
 
         fn splitNthChild(alloc: std.mem.Allocator, node_ptr: *AnyNode, depth: usize, n: usize) Error!void {
-            // log.info("splitNthChild(root={}, depth={}, n={})", .{ root, depth, n });
             std.debug.assert(depth != 0);
 
             const parent: *BranchNode = @ptrCast(@alignCast(node_ptr));
@@ -993,8 +903,6 @@ pub fn BTreeMap(comptime K: type, comptime V: type, comptime cfg: Config(K)) typ
         }
 
         fn splitRoot(self: *Self, alloc: std.mem.Allocator) Error!void {
-            std.debug.print("split root\n", .{});
-
             const new_root = try alloc.create(BranchNode);
             new_root.* = .{};
             new_root.ptrs[0] = self.root.?;
